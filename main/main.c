@@ -9,7 +9,7 @@
 
 #define SERVO_MIN_PULSEWIDTH 500
 #define SERVO_MAX_PULSEWIDTH 2300
-#define SERVO_MAX_DEGREE 180
+#define SERVO_MAX_VALUE 255
 
 static const char *tag = "volcomix_ble";
 
@@ -31,9 +31,9 @@ static const ble_uuid128_t char_uuid =
         0x0a, 0x67,
         0x4b, 0x4e, 0x72, 0x11);
 
-static uint32_t angle_to_duty(uint8_t angle)
+static uint32_t to_duty(uint8_t value)
 {
-    return (((angle * (SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH)) / SERVO_MAX_DEGREE + SERVO_MIN_PULSEWIDTH) * 8192) / 20000;
+    return (((value * (SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH)) / SERVO_MAX_VALUE + SERVO_MIN_PULSEWIDTH) * 8192) / 20000;
 }
 
 static int char_access(uint16_t conn_handle, uint16_t attr_handle,
@@ -41,7 +41,7 @@ static int char_access(uint16_t conn_handle, uint16_t attr_handle,
 {
     ESP_LOGD(tag, "Characteristic written %d", ctxt->om->om_data[0]);
 
-    uint32_t duty = angle_to_duty(ctxt->om->om_data[0]);
+    uint32_t duty = to_duty(ctxt->om->om_data[0]);
     ESP_LOGD(tag, "Setting duty to %d", duty);
 
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
