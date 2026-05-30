@@ -7,6 +7,10 @@
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
 
+#define SERVO_MIN_PULSEWIDTH 500
+#define SERVO_MAX_PULSEWIDTH 2300
+#define SERVO_MAX_DEGREE 180
+
 static const char *tag = "volcomix_ble";
 
 // 11724e4b-670a-c399-fe43-4d4a4a281800
@@ -27,12 +31,17 @@ static const ble_uuid128_t char_uuid =
         0x0a, 0x67,
         0x4b, 0x4e, 0x72, 0x11);
 
+static uint32_t angle_to_duty(uint8_t angle)
+{
+    return (((angle * (SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH)) / SERVO_MAX_DEGREE + SERVO_MIN_PULSEWIDTH) * 8192) / 20000;
+}
+
 static int char_access(uint16_t conn_handle, uint16_t attr_handle,
                        struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
     ESP_LOGD(tag, "Characteristic written %d", ctxt->om->om_data[0]);
 
-    uint32_t duty = (((ctxt->om->om_data[0] * 2000) / 180 + 500) * 8192) / 20000;
+    uint32_t duty = angle_to_duty(ctxt->om->om_data[0]);
     ESP_LOGD(tag, "Setting duty to %d", duty);
 
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
@@ -148,7 +157,7 @@ void app_main(void)
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
         .timer_sel = LEDC_TIMER_0,
-        .gpio_num = 13,
+        .gpio_num = 27,
         .duty = 0,
         .hpoint = 0,
     };
