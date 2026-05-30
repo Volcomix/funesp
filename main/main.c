@@ -30,10 +30,10 @@ static const ble_uuid128_t char_uuid =
 static int char_access(uint16_t conn_handle, uint16_t attr_handle,
                        struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    ESP_LOGI(tag, "Characteristic written %d", ctxt->om->om_data[0]);
+    ESP_LOGD(tag, "Characteristic written %d", ctxt->om->om_data[0]);
 
     uint32_t duty = (((ctxt->om->om_data[0] * 2000) / 180 + 500) * 8192) / 20000;
-    ESP_LOGI(tag, "Setting duty to %d", duty);
+    ESP_LOGD(tag, "Setting duty to %d", duty);
 
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
