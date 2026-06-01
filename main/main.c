@@ -23,7 +23,7 @@ static const ble_uuid128_t service_uuid =
         0x4b, 0x4e, 0x72, 0x11);
 
 // 11724e4b-670a-c399-fe43-4d4a4a281801
-static const ble_uuid128_t char_uuid =
+static const ble_uuid128_t servo_chr_uuid =
     BLE_UUID128_INIT(
         0x01, 0x18, 0x28, 0x4a, 0x4a, 0x4d,
         0x43, 0xfe,
@@ -31,18 +31,18 @@ static const ble_uuid128_t char_uuid =
         0x0a, 0x67,
         0x4b, 0x4e, 0x72, 0x11);
 
-static uint32_t to_duty(uint8_t value)
+static uint32_t to_servo_duty(uint8_t value)
 {
     return (((value * (SERVO_MAX_PULSEWIDTH - SERVO_MIN_PULSEWIDTH)) / SERVO_MAX_VALUE + SERVO_MIN_PULSEWIDTH) * 8192) / 20000;
 }
 
-static int char_access(uint16_t conn_handle, uint16_t attr_handle,
-                       struct ble_gatt_access_ctxt *ctxt, void *arg)
+static int servo_chr_access(uint16_t conn_handle, uint16_t attr_handle,
+                            struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    ESP_LOGD(tag, "Characteristic written %d", ctxt->om->om_data[0]);
+    ESP_LOGD(tag, "Servo characteristic written %d", ctxt->om->om_data[0]);
 
-    uint32_t duty = to_duty(ctxt->om->om_data[0]);
-    ESP_LOGD(tag, "Setting duty to %d", duty);
+    uint32_t duty = to_servo_duty(ctxt->om->om_data[0]);
+    ESP_LOGD(tag, "Setting servo duty to %d", duty);
 
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
@@ -54,8 +54,8 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
      .uuid = &service_uuid.u,
      .characteristics = (struct ble_gatt_chr_def[]){
-         {.uuid = &char_uuid.u,
-          .access_cb = char_access,
+         {.uuid = &servo_chr_uuid.u,
+          .access_cb = servo_chr_access,
           .flags = BLE_GATT_CHR_F_WRITE_NO_RSP},
          {0},
      }},
