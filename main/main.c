@@ -62,30 +62,11 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {0},
 };
 
-static int on_gap_event(struct ble_gap_event *event, void *arg)
-{
-    switch (event->type)
-    {
-    case BLE_GAP_EVENT_CONNECT:
-        if (event->connect.status == 0)
-        {
-            ESP_LOGI(tag, "Connection established");
-        }
-        else
-        {
-            ESP_LOGE(tag, "Connection failed; status=%d", event->connect.status);
-        }
-        break;
-    case BLE_GAP_EVENT_DISCONNECT:
-        ESP_LOGI(tag, "Disconnected; reason=%d", event->disconnect.reason);
-        break;
-    }
-    return 0;
-}
+static int on_gap_event(struct ble_gap_event *event, void *arg);
 
-static void on_sync(void)
+static void advertise(void)
 {
-    ESP_LOGI(tag, "BLE stack synced");
+    ESP_LOGI(tag, "Advertising...");
 
     int rc;
     struct ble_hs_adv_fields adv_fields = {0};
@@ -131,6 +112,35 @@ static void on_sync(void)
         MODLOG_DFLT(ERROR, "Error enabling advertisement; rc=%d\n", rc);
         return;
     }
+}
+
+static int on_gap_event(struct ble_gap_event *event, void *arg)
+{
+    switch (event->type)
+    {
+    case BLE_GAP_EVENT_CONNECT:
+        if (event->connect.status == 0)
+        {
+            ESP_LOGI(tag, "Connection established");
+        }
+        else
+        {
+            ESP_LOGE(tag, "Connection failed; status=%d", event->connect.status);
+            advertise();
+        }
+        break;
+    case BLE_GAP_EVENT_DISCONNECT:
+        ESP_LOGI(tag, "Disconnected; reason=%d", event->disconnect.reason);
+        advertise();
+        break;
+    }
+    return 0;
+}
+
+static void on_sync(void)
+{
+    ESP_LOGI(tag, "BLE stack synced");
+    advertise();
 }
 
 void host_task(void *param)
