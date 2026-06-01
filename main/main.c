@@ -10,6 +10,7 @@
 #define SERVO_MIN_PULSEWIDTH 500
 #define SERVO_MAX_PULSEWIDTH 2300
 #define SERVO_MAX_VALUE 255
+#define LED_MAX_VALUE 255
 
 static const char *tag = "volcomix_ble";
 
@@ -26,6 +27,15 @@ static const ble_uuid128_t service_uuid =
 static const ble_uuid128_t servo_chr_uuid =
     BLE_UUID128_INIT(
         0x01, 0x18, 0x28, 0x4a, 0x4a, 0x4d,
+        0x43, 0xfe,
+        0x99, 0xc3,
+        0x0a, 0x67,
+        0x4b, 0x4e, 0x72, 0x11);
+
+// 11724e4b-670a-c399-fe43-4d4a4a281802
+static const ble_uuid128_t led_chr_uuid =
+    BLE_UUID128_INIT(
+        0x02, 0x18, 0x28, 0x4a, 0x4a, 0x4d,
         0x43, 0xfe,
         0x99, 0xc3,
         0x0a, 0x67,
@@ -50,13 +60,39 @@ static int servo_chr_access(uint16_t conn_handle, uint16_t attr_handle,
     return 0;
 }
 
+static uint32_t to_led_duty(uint8_t value)
+{
+    return (value * 8191) / LED_MAX_VALUE;
+}
+
+static int led_chr_access(uint16_t conn_handle, uint16_t attr_handle,
+                          struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+    ESP_LOGD(tag, "LED characteristic written %d", ctxt->om->om_data[0]);
+
+    uint32_t duty = to_led_duty(ctxt->om->om_data[0]);
+    ESP_LOGD(tag, "Setting LED duty to %d", duty);
+
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1));
+
+    return 0;
+}
+
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {.type = BLE_GATT_SVC_TYPE_PRIMARY,
      .uuid = &service_uuid.u,
      .characteristics = (struct ble_gatt_chr_def[]){
-         {.uuid = &servo_chr_uuid.u,
-          .access_cb = servo_chr_access,
-          .flags = BLE_GATT_CHR_F_WRITE_NO_RSP},
+         {
+             .uuid = &servo_chr_uuid.u,
+             .access_cb = servo_chr_access,
+             .flags = BLE_GATT_CHR_F_WRITE_NO_RSP,
+         },
+         {
+             .uuid = &led_chr_uuid.u,
+             .access_cb = led_chr_access,
+             .flags = BLE_GATT_CHR_F_WRITE_NO_RSP,
+         },
          {0},
      }},
     {0},
@@ -154,16 +190,16 @@ void app_main(void)
 {
     int rc;
 
-    ledc_timer_config_t ledc_timer = {
+    ledc_timer_config_t servo_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_13_BIT,
         .timer_num = LEDC_TIMER_0,
         .freq_hz = 50,
         .clk_cfg = LEDC_AUTO_CLK,
     };
-    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+    ESP_ERROR_CHECK(ledc_timer_config(&servo_timer));
 
-    ledc_channel_config_t ledc_channel = {
+    ledc_channel_config_t servo_channel = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
         .timer_sel = LEDC_TIMER_0,
@@ -171,7 +207,26 @@ void app_main(void)
         .duty = 0,
         .hpoint = 0,
     };
-    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+    ESP_ERROR_CHECK(ledc_channel_config(&servo_channel));
+
+    ledc_timer_config_t led_timer = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_13_BIT,
+        .timer_num = LEDC_TIMER_1,
+        .freq_hz = 4000,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&led_timer));
+
+    ledc_channel_config_t led_channel = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_1,
+        .timer_sel = LEDC_TIMER_1,
+        .gpio_num = 32,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&led_channel));
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
